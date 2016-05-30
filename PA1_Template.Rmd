@@ -1,0 +1,130 @@
+Reproducible Research - Course Project 1
+---
+
+#### Load libraries/packages
+```{r}
+library(knitr)
+library(lubridate)
+library(ggplot2)
+library(dplyr)
+```
+
+#### Set Working Directory & Load Data
+```{r}
+setwd("/Users/cerimitchell/Desktop/Coursera/005 - Reproducible Research/Course Project 1")
+
+if(!exists("act")){
+        act <- read.csv("activity.csv")
+}
+```
+
+
+
+## What is mean total number of steps taken per day?
+Ignore the missing values in the dataset
+
+#### Total number of steps taken per day
+```{r, echo=FALSE}
+daily_steps <- act %>%
+  filter(!is.na(steps)) %>%
+  group_by(date) %>%
+  summarise(daily_steps = sum(steps)) %>%
+  print
+```
+
+#### Histogram of total number of steps taken
+```{r}
+ggplot(daily_steps,
+        aes(x = daily_steps)) +
+        geom_histogram(fill = "darkgreen", binwidth = 800) +
+        labs(title = "Histogram of Steps per day", x = "Steps per day", y = "Frequency")
+```
+
+#### Calculate the mean and median of total number of steps taken per day
+```{r}
+mean_steps <- mean(daily_steps$daily_steps, na.rm=TRUE)
+mean_steps
+
+median_steps <- median(daily_steps$daily_steps, na.rm=TRUE)
+median_steps
+```
+
+
+
+## What is the average daily activity pattern?
+
+#### Average number of steps taken in each 5-minute interval
+```{r}
+interval <- act %>%
+        filter(!is.na(steps)) %>%
+        group_by(interval) %>%
+        summarise(steps = mean(steps))
+```
+
+#### Plot of 5 minute interval and average steps
+```{r}
+ggplot(interval, aes(x=interval, y=steps)) +
+geom_line(col = "red")
+```
+
+#### 5-minute interval, on average across all days, containing maximum number of steps?
+```{r}
+interval[which.max(interval$steps),]
+```
+
+
+
+## Imputing Missing Values
+Imputing missing values
+
+Note that there are a number of days/intervals where there are missing values (coded as 𝙽𝙰). The presence of missing days may introduce bias into some calculations or summaries of the data.
+
+1. Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with 𝙽𝙰s)
+```{r}
+sum(is.na(act$steps))
+```
+
+2. Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
+3. Create a new dataset that is equal to the original dataset but with the missing data filled in.
+```{r}
+act2 <- act
+nas <- is.na(act2$steps)
+average_interval <- tapply(act2$steps, act2$interval, mean, na.rm = TRUE, simplify = TRUE)
+act2$steps[nas] <- average_interval[as.character(act2$interval[nas])]
+```
+#### Check no missing values
+```{r}
+sum(is.na(act2$steps))
+```
+
+4. Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+```{r}
+total_steps <- act2 %>%
+        filter(!is.na(steps)) %>%
+        group_by(date) %>%
+        summarise(steps = sum(steps)) %>%
+        print
+```
+#### Total number of steps Histogram
+```{r}
+ggplot(total_steps, aes(x = steps)) +
+        geom_histogram(fill = "darkgreen", binwidth = 800) +
+        labs(title = "Steps per day (including missing values)", x = "Steps per day", y = "Frequency")
+```
+
+
+
+## Are there differences in activity patterns between weekdays and weekends?
+For this part the 𝚠𝚎𝚎𝚔𝚍𝚊𝚢𝚜() function may be of some help here. Use the dataset with the filled-in missing values for this part.
+
+1. Create a new factor variable in the dataset with two levels – “weekday” and “weekend” indicating whether a given date is a weekday or weekend day.
+2. Make a panel plot containing a time series plot (i.e. 𝚝𝚢𝚙𝚎 = "𝚕") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). See the README file in the GitHub repository to see an example of what this plot should look like using simulated data.
+```{r}
+act2$date <- as.Date(act2$date)
+act2$dayname <- weekdays(act2$date)
+act2$weekend <- as.factor(ifelse(act2$dayname == "Saturday" | act2$dayname == "Sunday", "weekend", "weekday"))
+                                 
+library(lattice)
+plotdata <- aggregate(steps ~ interval + weekend, act2, mean)
+xyplot(steps ~ interval | factor(weekend), data=plotdata, aspect = 1/3, type = "l")
+```
